@@ -21,6 +21,8 @@ import {
 import type { TimelockActionName } from "@/lib/timelock/proposalExecution";
 import { useTimelockWindow } from "@/lib/timelock/useTimelockWindow";
 import { ProposalTimelockActions } from "./ProposalTimelockActions";
+import { QuorumProgress } from "@/components/QuorumProgress";
+import { fmt } from "@/lib/voteDisplay";
 
 const stateLabels: Record<ProposalState, string> = {
   [ProposalState.Pending]: "Pending",
@@ -202,6 +204,24 @@ function CommunityProposalDetailPanel({
               </dd>
             </div>
           </dl>
+          <section className="mt-6 rounded-xl border border-slate-800 bg-[#151b2b] p-5">
+            <h2 className="font-semibold text-slate-100">Votes</h2>
+            {resolution.votes && !resolution.votes.error ? (
+              <dl className="mt-3 grid grid-cols-3 gap-2 text-sm">
+                {(["for", "against", "abstain"] as const).map((choice) => (
+                  <div key={choice}>
+                    <dt className="capitalize text-slate-400">{choice}</dt>
+                    <dd className="font-mono text-slate-100">{fmt(resolution.votes!.totals[choice])}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : <p className="mt-3 text-sm text-slate-400">Vote totals unavailable.</p>}
+            <QuorumProgress
+              totals={resolution.votes && !resolution.votes.error ? resolution.votes.totals : null}
+              quorum={resolution.quorum}
+              incomplete={resolution.votes?.incomplete}
+            />
+          </section>
           {windowError ? (
             <p role="alert" className="mt-4 text-sm text-rose-300">
               {windowError}

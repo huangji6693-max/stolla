@@ -4,6 +4,7 @@ import { Buffer } from "buffer";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ProposalState } from "@/lib/bindings/community-governor/src";
 import { createReadOnlyGovernorClientFor } from "@/lib/contracts";
+import { fetchVoteTotals, type VoteAggregationResult } from "@/lib/proposal-events/votes";
 
 export type ProposalReader = {
   proposal_state: (args: {
@@ -12,6 +13,8 @@ export type ProposalReader = {
   proposal_proposer?: (args: {
     proposal_id: Buffer;
   }) => Promise<{ result: string | null }>;
+  proposal_snapshot?: (args: { proposal_id: Buffer }) => Promise<{ result: number }>;
+  quorum?: (args: { ledger: number }) => Promise<{ result: bigint }>;
 };
 
 export type ProposalReaderFactory = (governorContractId: string) => ProposalReader;
@@ -104,7 +107,8 @@ export function useCommunityProposals(
 
 export type ProposalResolution =
   | { status: "loading" }
-  | { status: "ready"; state: ProposalState; proposer: string | null; refresh: () => void }
+  | { status: "ready"; state: ProposalState; proposer: string | null; refresh: () => void;
+      quorum: bigint | null; votes: VoteAggregationResult | null }
   | { status: "error"; error: string };
 
 export function useCommunityProposal(
@@ -119,12 +123,17 @@ export function useCommunityProposal(
   const [error, setError] = useState<string | null>(null);
   const [trackedScopeKey, setTrackedScopeKey] = useState(scopeKey);
   const [refreshNonce, setRefreshNonce] = useState(0);
+  const [participation, setParticipation] = useState<{
+    quorum: bigint | null;
+    votes: VoteAggregationResult | null;
+  }>({ quorum: null, votes: null });
 
   if (trackedScopeKey !== scopeKey) {
     setTrackedScopeKey(scopeKey);
     setState(null);
     setProposer(null);
     setError(null);
+    setParticipation({ quorum: null, votes: null });
   }
 
   const fetchIdRef = useRef(0);
@@ -152,6 +161,21 @@ export function useCommunityProposal(
           }
         }
         if (cancelled || fetchIdRef.current !== fetchId) return;
+        // Reuse the Governor's snapshot quorum and the existing scoped vote totals.
+        // Missing read methods (e.g. a limited adapter) remain explicitly unavailable.
+        const [quorum, votes] = await Promise.all([
+          reader.proposal_snapshot && reader.quorum
+            ? reader.proposal_snapshot(proposalKey)
+                .then((snapshot) => reader.quorum!({ ledger: snapshot.result }))
+                .then((tx) => tx.result)
+                .catch(() => null)
+            : Promise.resolve(null),
+          reader.proposal_snapshot && reader.quorum
+            ? fetchVoteTotals(proposalId, governorContractId).catch(() => null)
+            : Promise.resolve(null),
+        ]);
+        if (cancelled || fetchIdRef.current !== fetchId) return;
+        setParticipation({ quorum, votes });
         setProposer(nextProposer);
         setState(tx.result);
         setError(null);
@@ -170,5 +194,5 @@ export function useCommunityProposal(
 
   if (error) return { status: "error", error };
   if (state === null) return { status: "loading" };
-  return { status: "ready", state, proposer, refresh };
+  return { status: "ready", state, proposer, refresh, ...participation };
 }

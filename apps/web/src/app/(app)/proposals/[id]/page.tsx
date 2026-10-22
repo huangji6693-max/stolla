@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useWallet } from "@/context/WalletProvider";
 import { AppButton } from "@/components/ui/AppButton";
 import { AppLinkButton } from "@/components/ui/AppLinkButton";
+import { QuorumProgress } from "@/components/QuorumProgress";
 import { VoteActions } from "@/components/VoteActions";
 import type { VoteType } from "@/components/voteOptions.mjs";
 import {
@@ -145,7 +146,7 @@ export default function ProposalDetailPage({
       })),
     ]);
 
-    setTotals(voteResult.totals);
+    setTotals(voteResult.error ? null : voteResult.totals);
     setTotalsIncomplete(voteResult.incomplete);
     setTotalsError(voteResult.error ?? null);
 
@@ -414,8 +415,6 @@ export default function ProposalDetailPage({
   }
 
   const proposal = result!;
-  const quorumPct =
-    quorum !== null && totals ? pct(totals.total, quorum) : null;
 
   async function copyProposalUrl(url: string) {
     setShareStatus("");
@@ -718,42 +717,9 @@ export default function ProposalDetailPage({
             Vote totals unavailable{totalsError ? `: ${totalsError}` : ""}
           </p>
         )}
+        <QuorumProgress totals={totals} quorum={quorum} incomplete={totalsIncomplete} />
       </section>
 
-      {quorum !== null && (
-        <section className="mt-4 rounded-xl border border-slate-800 bg-[#151b2b] p-5">
-          <h2 className="font-semibold text-slate-100">Quorum</h2>
-          <div className="mt-3">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-400">
-                {totals ? fmt(totals.total) : "0"} / {fmt(quorum)}
-              </span>
-              <span
-                className={`font-medium ${
-                  quorumPct !== null && quorumPct >= 100
-                    ? "text-emerald-400"
-                    : "text-slate-300"
-                }`}
-              >
-                {quorumPct !== null ? `${quorumPct}%` : "—"}
-              </span>
-            </div>
-            <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-slate-800">
-              <div
-                className={`h-full rounded-full transition-all duration-700 ${
-                  quorumPct !== null && quorumPct >= 100
-                    ? "bg-emerald-500"
-                    : "bg-blue-500"
-                }`}
-                style={{ width: `${quorumPct ?? 0}%` }}
-              />
-            </div>
-            {quorumPct !== null && quorumPct >= 100 && (
-              <p className="mt-1 text-xs text-emerald-400">Quorum reached</p>
-            )}
-          </div>
-        </section>
-      )}
 
       <section className="mt-6 rounded-xl border border-slate-800 bg-[#151b2b] p-5">
         <h2 className="font-semibold text-slate-100">Cast vote</h2>

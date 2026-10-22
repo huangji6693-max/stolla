@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fmt, pct } from "./voteDisplay";
+import { fmt, pct, quorumProgress } from "./voteDisplay";
 
 describe("pct", () => {
   it("returns 0 when the whole is zero (avoids division by zero)", () => {
@@ -56,5 +56,27 @@ describe("fmt", () => {
   it("returns a non-empty string for large values", () => {
     expect(typeof fmt(BigInt(1000000))).toBe("string");
     expect(fmt(BigInt(1000000)).length).toBeGreaterThan(0);
+  });
+});
+
+describe("quorumProgress", () => {
+  const totals = (forVotes: bigint, abstain = BigInt(0), against = BigInt(0)) => ({
+    for: forVotes, abstain, against, total: forVotes + abstain + against,
+  });
+
+  it("counts only For + Abstain, matching the Governor", () => {
+    expect(quorumProgress(totals(BigInt(2), BigInt(1), BigInt(100)), BigInt(4)))
+      .toEqual({ state: "pending", percent: 75, participating: BigInt(3), remaining: BigInt(1) });
+  });
+
+  it("compares huge bigint totals exactly at the quorum boundary", () => {
+    const quorum = BigInt("340282366920938463463374607431768211455");
+    expect(quorumProgress(totals(quorum - BigInt(1)), quorum)).toMatchObject({ state: "pending", percent: 99, remaining: BigInt(1) });
+    expect(quorumProgress(totals(quorum), quorum)).toMatchObject({ state: "met", percent: 100, remaining: BigInt(0) });
+    expect(quorumProgress(totals(quorum + BigInt(1)), quorum)).toMatchObject({ state: "met", percent: 100 });
+  });
+
+  it.each([null, undefined, BigInt(0), -BigInt(1)])("marks missing or invalid quorum unavailable (%s)", (quorum) => {
+    expect(quorumProgress(totals(BigInt(0)), quorum)).toMatchObject({ state: "unavailable", percent: null });
   });
 });

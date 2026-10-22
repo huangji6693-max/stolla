@@ -607,4 +607,29 @@ describe("ProposalDetailPage", () => {
       screen.getByText("Received from others (delegated-in)"),
     ).toBeInTheDocument();
   });
+
+  it("updates quorum progress when confirmed voting refreshes totals", async () => {
+    mocks.useParams.mockReturnValue({ id: VALID_ID });
+    mockConnectedWallet();
+    mocks.fetchVoteTotals.mockResolvedValueOnce({
+      totals: { for: BigInt(10), against: BigInt(100), abstain: BigInt(15), total: BigInt(125) }, incomplete: false,
+    }).mockResolvedValue({
+      totals: { for: BigInt(85), against: BigInt(100), abstain: BigInt(15), total: BigInt(200) }, incomplete: false,
+    });
+    render(<ProposalDetailPage />);
+    await screen.findByRole("heading", { name: "Cast vote" });
+    expect(screen.getByRole("progressbar", { name: "Quorum progress" })).toHaveAttribute("aria-valuenow", "25");
+    fireEvent.click(screen.getByRole("button", { name: "For" }));
+    await waitFor(() => expect(screen.getByRole("progressbar", { name: "Quorum progress" })).toHaveAttribute("aria-valuenow", "100"));
+  });
+
+  it("does not invent zero quorum progress after a totals provider failure", async () => {
+    mocks.useParams.mockReturnValue({ id: VALID_ID });
+    mocks.fetchVoteTotals.mockRejectedValue(new Error("RPC unavailable"));
+    render(<ProposalDetailPage />);
+    await screen.findByRole("heading", { name: "Cast vote" });
+    expect(screen.getByText("Quorum progress unavailable.")).toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
 });

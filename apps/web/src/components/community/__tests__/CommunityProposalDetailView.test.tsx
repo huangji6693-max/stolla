@@ -10,6 +10,9 @@ import {
 } from "@/test/fixtures/communities";
 import { createGovernorReaderFactory } from "@/test-support/stellar";
 
+import { fetchVoteTotals } from "@/lib/proposal-events/votes";
+vi.mock("@/lib/proposal-events/votes", () => ({ fetchVoteTotals: vi.fn() }));
+
 describe("CommunityProposalDetailView", () => {
   it("scopes an identical proposal id to the routed community's own Governor", async () => {
     const getReader = createGovernorReaderFactory([
@@ -149,4 +152,43 @@ describe("CommunityProposalDetailView", () => {
     expect(await screen.findByRole("button", { name: "Queue" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "Execute" })).not.toBeInTheDocument();
   });
+
+  it("reads snapshot quorum and vote totals from the routed Governor", async () => {
+    vi.mocked(fetchVoteTotals).mockResolvedValueOnce({
+      totals: { for: BigInt(2), against: BigInt(100), abstain: BigInt(1), total: BigInt(103) },
+      incomplete: false,
+    });
+    const quorum = vi.fn().mockResolvedValue({ result: BigInt(4) });
+    const getReader = vi.fn().mockReturnValue({
+      proposal_state: vi.fn().mockResolvedValue({ result: ProposalState.Active }),
+      proposal_snapshot: vi.fn().mockResolvedValue({ result: 1500 }),
+      quorum,
+    });
+    render(<CommunityProposalDetailView
+      communityId={atlasCommunity.record.id} proposalId="01"
+      registry={multiCommunityRegistry} getReader={getReader}
+    />);
+    const progress = await screen.findByRole("progressbar", { name: "Quorum progress" });
+    expect(progress).toHaveAttribute("aria-valuenow", "75");
+    expect(quorum).toHaveBeenCalledWith({ ledger: 1500 });
+    expect(fetchVoteTotals).toHaveBeenCalledWith("01", atlasCommunity.record.governorContract);
+    expect(getReader).toHaveBeenCalledWith(atlasCommunity.record.governorContract);
+  });
+
+  it("keeps proposal state visible when quorum and vote history are unavailable", async () => {
+    vi.mocked(fetchVoteTotals).mockRejectedValueOnce(new Error("RPC unavailable"));
+    const getReader = vi.fn().mockReturnValue({
+      proposal_state: vi.fn().mockResolvedValue({ result: ProposalState.Active }),
+      proposal_snapshot: vi.fn().mockRejectedValue(new Error("Snapshot unavailable")),
+      quorum: vi.fn(),
+    });
+    render(<CommunityProposalDetailView
+      communityId={atlasCommunity.record.id} proposalId="01"
+      registry={multiCommunityRegistry} getReader={getReader}
+    />);
+    expect(await screen.findByText("Active")).toBeInTheDocument();
+    expect(screen.getByText("Quorum progress unavailable.")).toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
 });
