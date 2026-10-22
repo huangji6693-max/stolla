@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { CommunityAvatar } from "@/components/CommunityAvatar";
+import { CommunityInviteBanner } from "@/components/community/CommunityInviteBanner";
+import { CommunityInviteLinkBuilder } from "@/components/community/CommunityInviteLinkBuilder";
 import { CommunityOwnershipSettings } from "@/components/community/CommunityOwnershipSettings";
 import { AppButton } from "@/components/ui/AppButton";
 import { AppLinkButton } from "@/components/ui/AppLinkButton";
@@ -23,6 +25,7 @@ import { CommunityMemberRoster } from "@/components/community/CommunityMemberRos
 import { GuardianControls } from "@/components/community/GuardianControls";
 import { readMetadataOverlay } from "@/lib/community/settings";
 import { useCommunityWatchlist } from "@/hooks/useCommunityWatchlist";
+import { hasInviteIntent } from "@/lib/community/invite";
 
 function ContractAddress({
   label,
@@ -88,6 +91,16 @@ export default function CommunityDetailPage() {
   const [loading, setLoading] = useState(true);
   const [copyStatus, setCopyStatus] = useState("");
   const watchlist = useCommunityWatchlist();
+  const [showInviteBanner, setShowInviteBanner] = useState(false);
+
+  // Read client-side (not via useSearchParams) to match this app's existing
+  // convention for URL-driven pages. Purely cosmetic — see
+  // lib/community/invite.ts for why this can never grant any privilege.
+  useEffect(() => {
+    queueMicrotask(() => {
+      setShowInviteBanner(hasInviteIntent(window.location.search));
+    });
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -248,6 +261,12 @@ export default function CommunityDetailPage() {
       >
         ← All communities
       </Link>
+
+      {showInviteBanner && (
+        <div className="mt-5">
+          <CommunityInviteBanner communityName={name} />
+        </div>
+      )}
 
       <header className="mt-5 flex min-w-0 items-start gap-4">
         <CommunityAvatar
@@ -431,6 +450,10 @@ export default function CommunityDetailPage() {
           estimates.
         </p>
       </section>
+
+      <div className="mt-6">
+        <CommunityInviteLinkBuilder communityId={record.id} />
+      </div>
 
       <CommunityMemberRoster nftContractId={record.nftContract} />
 
