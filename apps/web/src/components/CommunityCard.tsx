@@ -1,8 +1,10 @@
 "use client";
 
 import { CommunityAvatar } from "@/components/CommunityAvatar";
+import { AppButton } from "@/components/ui/AppButton";
 import { AppLinkButton } from "@/components/ui/AppLinkButton";
 import { useCommunityMembership } from "@/hooks/useCommunityMembership";
+import { useCommunityWatchlist } from "@/hooks/useCommunityWatchlist";
 import {
   membershipLabel,
 } from "@/lib/community/membership";
@@ -23,6 +25,8 @@ export function CommunityCard({ community }: { community: CommunityView }) {
   const name = metadata?.name ?? `Community ${truncateMiddle(record.id, 8, 6)}`;
   const membership = useCommunityMembership(record.nftContract);
   const membershipText = membershipLabel(membership);
+  const watchlist = useCommunityWatchlist();
+  const watched = watchlist.isWatched(record.id);
 
   return (
     <article className="flex h-full min-w-0 flex-col rounded-xl border border-slate-800 bg-[#151b2b] p-4 sm:p-5">
@@ -106,14 +110,30 @@ export function CommunityCard({ community }: { community: CommunityView }) {
         </div>
       </dl>
 
-      <AppLinkButton
-        href={`/communities/${record.id}`}
-        aria-label={`View ${name} community details`}
-        tone="primary"
-        className="mt-5 sm:self-start"
-      >
-        View community
-      </AppLinkButton>
+      <div className="mt-5 flex flex-wrap gap-2">
+        <AppLinkButton
+          href={`/communities/${record.id}`}
+          aria-label={`View ${name} community details`}
+          tone="primary"
+          className="sm:self-start"
+        >
+          View community
+        </AppLinkButton>
+        {watchlist.connected && (
+          <AppButton
+            tone="secondary"
+            onClick={() => watchlist.toggle(record.id, name)}
+            aria-pressed={watched}
+            aria-label={
+              watched
+                ? `Stop watching ${name} (not a membership action)`
+                : `Watch ${name} to follow its proposals (not a membership action)`
+            }
+          >
+            {watched ? "Watching" : "Watch"}
+          </AppButton>
+        )}
+      </div>
     </article>
   );
 }

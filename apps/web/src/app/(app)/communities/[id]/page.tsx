@@ -22,6 +22,7 @@ import { truncateMiddle } from "@/lib/truncate";
 import { CommunityMemberRoster } from "@/components/community/CommunityMemberRoster";
 import { GuardianControls } from "@/components/community/GuardianControls";
 import { readMetadataOverlay } from "@/lib/community/settings";
+import { useCommunityWatchlist } from "@/hooks/useCommunityWatchlist";
 
 function ContractAddress({
   label,
@@ -86,6 +87,7 @@ export default function CommunityDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [copyStatus, setCopyStatus] = useState("");
+  const watchlist = useCommunityWatchlist();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -276,6 +278,20 @@ export default function CommunityDetailPage() {
             >
               Share page
             </AppButton>
+            {watchlist.connected && (
+              <AppButton
+                tone="secondary"
+                onClick={() => watchlist.toggle(record.id, name)}
+                aria-pressed={watchlist.isWatched(record.id)}
+                aria-label={
+                  watchlist.isWatched(record.id)
+                    ? `Stop watching ${name} (not a membership action)`
+                    : `Watch ${name} to follow its proposals (not a membership action)`
+                }
+              >
+                {watchlist.isWatched(record.id) ? "Watching" : "Watch"}
+              </AppButton>
+            )}
             <AppLinkButton href={`/communities/${record.id}/settings`} tone="secondary">
               Settings
             </AppLinkButton>

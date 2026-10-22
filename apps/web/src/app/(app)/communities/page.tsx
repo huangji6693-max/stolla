@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isCommunityFactoryConfigured } from "@/lib/community/registry";
 import { CommunityCard } from "@/components/CommunityCard";
@@ -8,6 +9,7 @@ import { AppLinkButton } from "@/components/ui/AppLinkButton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LiveStatus } from "@/components/ui/LiveStatus";
 import { SkeletonCommunityRow } from "@/components/ui/Skeleton";
+import { useCommunityWatchlist } from "@/hooks/useCommunityWatchlist";
 import { listCommunities } from "@/lib/community/registry";
 import type { CommunityView } from "@/lib/community/types";
 
@@ -46,6 +48,7 @@ function writeListUrlState(
 }
 
 export default function CommunitiesPage() {
+  const watchlist = useCommunityWatchlist();
   const [communities, setCommunities] = useState<CommunityView[]>([]);
   const [nextCursor, setNextCursor] = useState<number | null>(null);
   const [hasLoaded, setHasLoaded] = useState(false);
@@ -235,6 +238,52 @@ export default function CommunitiesPage() {
           Create a community
         </AppLinkButton>
       </div>
+
+      <section
+        aria-label="Watching"
+        className="mt-6 rounded-xl border border-slate-800 bg-[#151b2b] p-4 sm:p-5"
+      >
+        <h2 className="font-semibold text-slate-100">Watching</h2>
+        <p className="mt-1 text-sm text-slate-400">
+          Pinned locally in this browser for the connected wallet. Watching
+          does not grant membership — clearing site data (or switching
+          browsers) removes this list.
+        </p>
+        {!watchlist.connected ? (
+          <p className="mt-3 text-sm text-slate-500">
+            Connect a wallet to pin communities here.
+          </p>
+        ) : watchlist.entries.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-500">
+            Nothing pinned yet. Use Watch on a community below to add it
+            here.
+          </p>
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {watchlist.entries.map((entry) => (
+              <li
+                key={entry.communityId}
+                className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-800 px-3 py-2"
+              >
+                <Link
+                  href={`/communities/${entry.communityId}/proposals`}
+                  className="min-w-0 truncate text-sm text-slate-200 hover:text-indigo-300"
+                >
+                  {entry.name}
+                </Link>
+                <AppButton
+                  tone="secondary"
+                  size="sm"
+                  onClick={() => watchlist.toggle(entry.communityId, entry.name)}
+                  aria-label={`Stop watching ${entry.name}`}
+                >
+                  Stop watching
+                </AppButton>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       {!isRegistryEmpty && (
         <div className="mt-6 max-w-xl">

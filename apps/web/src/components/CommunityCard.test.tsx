@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { CommunityView } from "@/lib/community/types";
 import { membershipFromBalance, membershipLabel } from "@/lib/community/membership";
 
@@ -61,6 +61,7 @@ describe("membership helpers", () => {
 describe("CommunityCard membership indicator", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
   });
 
   it("does not claim membership when the wallet is disconnected", () => {
@@ -154,5 +155,48 @@ describe("CommunityCard membership indicator", () => {
       );
     });
     expect(screen.getByText("Builders DAO")).toBeInTheDocument();
+  });
+});
+
+describe("CommunityCard watchlist toggle", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it("hides the Watch button entirely when disconnected", () => {
+    mocks.useWallet.mockReturnValue({ address: null, signTransaction: vi.fn(), isConnecting: false });
+    render(<CommunityCard community={community} />);
+    expect(screen.queryByRole("button", { name: /watch/i })).not.toBeInTheDocument();
+  });
+
+  it("offers Watch alongside the membership badge, and toggles to Watching", async () => {
+    mocks.useWallet.mockReturnValue({ address: "GWALLET", signTransaction: vi.fn(), isConnecting: false });
+    mocks.createReadOnlyNftClient.mockReturnValue({
+      balance: vi.fn().mockResolvedValue({ result: 0 }),
+    });
+
+    render(<CommunityCard community={community} />);
+
+    // Membership badge and the watch toggle coexist — neither replaces the other.
+    await screen.findByTestId("community-membership");
+    const toggle = screen.getByRole("button", { name: /^Watch Builders DAO/ });
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(toggle);
+
+    expect(
+      screen.getByRole("button", { name: /^Stop watching Builders DAO/ }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("never labels the toggle as a membership action", () => {
+    mocks.useWallet.mockReturnValue({ address: "GWALLET", signTransaction: vi.fn(), isConnecting: false });
+    mocks.createReadOnlyNftClient.mockReturnValue({ balance: vi.fn().mockResolvedValue({ result: 0 }) });
+
+    render(<CommunityCard community={community} />);
+
+    const toggle = screen.getByRole("button", { name: /watch builders dao/i });
+    expect(toggle.getAttribute("aria-label")).toMatch(/not a membership action/i);
   });
 });
