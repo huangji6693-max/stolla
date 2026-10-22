@@ -36,6 +36,11 @@ import {
   type ProposalMetadataErrors,
   type ProposalMetadataField,
 } from "@/lib/proposal-metadata";
+import {
+  clearProposalDraft,
+  readProposalDraft,
+  writeProposalDraft,
+} from "@/lib/proposal-draft";
 
 type ActionStatus = {
   message: string;
@@ -69,6 +74,16 @@ export default function ProposalsPage() {
   const [retryingIds, setRetryingIds] = useState<string[]>([]);
   const [visibleCount, setVisibleCount] = useState(LOAD_MORE_PAGE_SIZE);
   const [createOpen, setCreateOpen] = useState(false);
+  const [savedDraft, setSavedDraft] = useState<ProposalMetadataDraft | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (!contractIds.governor) return;
+    // Restore the banner once on mount; later writes come from typing, not this effect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSavedDraft(readProposalDraft(contractIds.governor));
+  }, []);
 
   const {
     proposals: discoveredProposals,
@@ -226,10 +241,14 @@ export default function ProposalsPage() {
 
 
   function updateMetadataField(field: ProposalMetadataField, value: string) {
-    setMetadataDraft((current) => ({
-      ...current,
-      [field]: field === "discussionUrl" ? value || null : value,
-    }));
+    setMetadataDraft((current) => {
+      const next = {
+        ...current,
+        [field]: field === "discussionUrl" ? value || null : value,
+      };
+      if (contractIds.governor) writeProposalDraft(contractIds.governor, next);
+      return next;
+    });
     setMetadataErrors((current) => {
       if (!current[field] && !current.envelope) return current;
       const next = { ...current };
@@ -237,6 +256,18 @@ export default function ProposalsPage() {
       delete next.envelope;
       return next;
     });
+  }
+
+  function continueDraft() {
+    if (!savedDraft) return;
+    setMetadataDraft(savedDraft);
+    setCreateOpen(true);
+    setSavedDraft(null);
+  }
+
+  function discardDraft() {
+    if (contractIds.governor) clearProposalDraft(contractIds.governor);
+    setSavedDraft(null);
   }
 
   async function handleCreateProposal() {
@@ -306,6 +337,8 @@ export default function ProposalsPage() {
     }
 
     setMetadataDraft(EMPTY_METADATA_DRAFT);
+    if (contractIds.governor) clearProposalDraft(contractIds.governor);
+    setSavedDraft(null);
     // Discovery delay is indexing lag, not a transaction failure.
     const refreshed = await refresh();
     if (!refreshed) {
@@ -375,6 +408,22 @@ export default function ProposalsPage() {
             description. Older free-text proposals remain readable on detail
             pages.
           </p>
+          {savedDraft && (
+            <div
+              role="status"
+              className="mt-3 rounded-lg border border-slate-700 bg-slate-900/60 p-3 text-sm text-slate-200"
+            >
+              <p>You have an unsaved proposal draft from a previous visit.</p>
+              <div className="mt-2 flex gap-2">
+                <AppButton tone="secondary" onClick={continueDraft}>
+                  Continue draft
+                </AppButton>
+                <AppButton tone="danger" onClick={discardDraft}>
+                  Discard
+                </AppButton>
+              </div>
+            </div>
+          )}
           {createOpen && (
             <div id="create-proposal-form" className="mt-3">
               <ProposalMetadataFields
