@@ -90,7 +90,7 @@ function mockGovernor(overrides: Record<string, unknown> = {}) {
     proposal_snapshot: vi.fn().mockResolvedValue({ result: 1_500_000 }),
     quorum: vi.fn().mockResolvedValue({ result: BigInt(100) }),
     cast_vote: vi.fn().mockResolvedValue({
-      signAndSend: vi.fn().mockResolvedValue(undefined),
+      signAndSend: vi.fn().mockResolvedValue({ getTransactionResponse: { status: "SUCCESS" } }),
     }),
     ...overrides,
   });
@@ -430,7 +430,7 @@ describe("ProposalDetailPage", () => {
       mocks.useParams.mockReturnValue({ id: VALID_ID });
       mockConnectedWallet("GVOTER");
       const castVote = vi.fn().mockResolvedValue({
-        signAndSend: vi.fn().mockResolvedValue(undefined),
+        signAndSend: vi.fn().mockResolvedValue({ getTransactionResponse: { status: "SUCCESS" } }),
       });
       mockGovernor({ cast_vote: castVote });
 
@@ -469,7 +469,7 @@ describe("ProposalDetailPage", () => {
     mockGovernor({
       has_voted: hasVoted,
       cast_vote: vi.fn().mockResolvedValue({
-        signAndSend: vi.fn().mockResolvedValue(undefined),
+        signAndSend: vi.fn().mockResolvedValue({ getTransactionResponse: { status: "SUCCESS" } }),
       }),
     });
 
@@ -498,6 +498,7 @@ describe("ProposalDetailPage", () => {
       (await screen.findAllByText(/rejected the wallet request/i)).length,
     ).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText("Vote confirmed!")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Vote receipt" })).not.toBeInTheDocument();
   });
 
   it("does not report success after a duplicate vote", async () => {
@@ -520,6 +521,7 @@ describe("ProposalDetailPage", () => {
         .length,
     ).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText("Vote confirmed!")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Vote receipt" })).not.toBeInTheDocument();
   });
 
   it("copies the canonical community-scoped proposal URL", async () => {
@@ -630,6 +632,58 @@ describe("ProposalDetailPage", () => {
     await screen.findByRole("heading", { name: "Cast vote" });
     expect(screen.getByText("Quorum progress unavailable.")).toBeInTheDocument();
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
+  it("shows a scoped receipt only after the vote confirms and hides it on navigation", async () => {
+    mocks.useParams.mockReturnValue({ id: VALID_ID });
+    mockConnectedWallet();
+    const pending = deferred<unknown>();
+    mockGovernor({ cast_vote: vi.fn().mockResolvedValue({ signAndSend: () => pending.promise }) });
+    const { rerender } = render(<ProposalDetailPage community={atlasCommunity} />);
+    await screen.findByRole("heading", { name: "Cast vote" });
+    expect(screen.queryByRole("region", { name: "Vote receipt" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "For" }));
+    await screen.findByText("Waiting for wallet approval…");
+    expect(screen.queryByRole("region", { name: "Vote receipt" })).not.toBeInTheDocument();
+    await act(async () => pending.resolve({
+      getTransactionResponse: { status: "SUCCESS" },
+      sendTransactionResponse: { hash: "cd".repeat(32) },
+    }));
+    const receipt = await screen.findByRole("region", { name: "Vote receipt" });
+    expect(receipt).toHaveTextContent(atlasCommunity.metadata!.name!);
+    expect(screen.getByRole("link", { name: "Open in explorer" })).toHaveAttribute(
+      "href", `https://stellar.expert/explorer/testnet/tx/${"cd".repeat(32)}`,
+    );
+    mocks.useParams.mockReturnValue({ id: "ef".repeat(32) });
+    rerender(<ProposalDetailPage community={atlasCommunity} />);
+    await screen.findByRole("heading", { name: "Cast vote" });
+    expect(screen.queryByRole("region", { name: "Vote receipt" })).not.toBeInTheDocument();
+  });
+
+  it("keeps a confirmed receipt when refreshing proposal data fails", async () => {
+    mocks.useParams.mockReturnValue({ id: VALID_ID });
+    mockConnectedWallet();
+    const proposalState = vi.fn().mockResolvedValueOnce({ result: ProposalState.Active })
+      .mockRejectedValue(new Error("RPC unavailable"));
+    mockReadOnly({ proposal_state: proposalState });
+    render(<ProposalDetailPage />);
+    await screen.findByRole("heading", { name: "Cast vote" });
+    fireEvent.click(screen.getByRole("button", { name: "For" }));
+    expect(await screen.findByRole("region", { name: "Vote receipt" })).toHaveTextContent("Transaction hash unavailable");
+    expect(await screen.findByText(/Your vote was confirmed, but proposal data/)).toBeInTheDocument();
+  });
+
+  it.each(["FAILED", "NOT_FOUND", undefined])("does not issue a receipt for an unconfirmed SDK result (%s)", async (status) => {
+    mocks.useParams.mockReturnValue({ id: VALID_ID });
+    mockConnectedWallet();
+    mockGovernor({ cast_vote: vi.fn().mockResolvedValue({
+      signAndSend: vi.fn().mockResolvedValue({ getTransactionResponse: { status } }),
+    }) });
+    render(<ProposalDetailPage />);
+    await screen.findByRole("heading", { name: "Cast vote" });
+    fireEvent.click(screen.getByRole("button", { name: "For" }));
+    await screen.findByText("Submission failed");
+    expect(screen.queryByRole("region", { name: "Vote receipt" })).not.toBeInTheDocument();
   });
 
 });

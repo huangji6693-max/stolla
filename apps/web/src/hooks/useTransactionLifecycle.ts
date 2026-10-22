@@ -28,6 +28,8 @@ export type TransactionLifecycleState = {
   error: string | null;
   /** Whether the transaction is terminal (confirmed or permanently failed) */
   isTerminal: boolean;
+  /** The confirmed submission's transaction hash, when `fn` returned one. */
+  transactionHash: string | null;
 };
 
 const PENDING_STAGES: TransactionStage[] = [
@@ -41,7 +43,8 @@ export function isVoteLifecyclePending(stage: TransactionStage): boolean {
   return PENDING_STAGES.includes(stage);
 }
 
-export type VoteTransactionFn = () => Promise<void>;
+/** May optionally resolve with the submitted transaction's hash, for the post-vote receipt. */
+export type VoteTransactionFn = () => Promise<{ hash?: string | null } | void>;
 
 type UseTransactionLifecycleOptions = {
   /** Called when the transaction completes successfully */
@@ -62,6 +65,7 @@ export function useTransactionLifecycle(options?: UseTransactionLifecycleOptions
     reason: "",
     error: null,
     isTerminal: false,
+    transactionHash: null,
   });
   const inFlightRef = useRef(false);
   const onConfirmedRef = useRef(options?.onConfirmed);
@@ -78,6 +82,7 @@ export function useTransactionLifecycle(options?: UseTransactionLifecycleOptions
       reason: "",
       error: null,
       isTerminal: false,
+      transactionHash: null,
     });
   }, []);
 
@@ -94,6 +99,7 @@ export function useTransactionLifecycle(options?: UseTransactionLifecycleOptions
         reason,
         error: null,
         isTerminal: false,
+        transactionHash: null,
       });
 
       try {
@@ -105,12 +111,13 @@ export function useTransactionLifecycle(options?: UseTransactionLifecycleOptions
           stage: "wallet_approval",
         }));
 
-        await fn();
+        const result = await fn();
 
         setState((prev) => ({
           ...prev,
           stage: "confirmed",
           isTerminal: true,
+          transactionHash: result?.hash ?? null,
         }));
 
         await onConfirmedRef.current?.();

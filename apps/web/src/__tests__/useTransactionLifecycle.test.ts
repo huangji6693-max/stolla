@@ -249,4 +249,15 @@ describe("useTransactionLifecycle", () => {
     expect(result.current.state.stage).toBe("confirmed");
     expect(result.current.isInFlight).toBe(false);
   });
+
+  it("retains the confirmed hash and clears it on reset or a failed retry", async () => {
+    const { result } = renderHook(() => useTransactionLifecycle());
+    await act(async () => { await result.current.execute(1, "", async () => ({ hash: "ab".repeat(32) })); });
+    expect(result.current.state.transactionHash).toBe("ab".repeat(32));
+    act(() => result.current.reset());
+    expect(result.current.state.transactionHash).toBeNull();
+    await act(async () => { await result.current.execute(0, "", async () => { throw new Error("User rejected"); }); });
+    expect(result.current.state.transactionHash).toBeNull();
+  });
+
 });
