@@ -12,7 +12,8 @@ import {
   type PublishStep,
 } from "@/lib/community/publishMetadata";
 import { formatBytes } from "@/lib/ipfs/limits";
-import { IpfsPinError, type IpfsPinClient } from "@/lib/ipfs/pin";
+import { type IpfsPinClient } from "@/lib/ipfs/pin";
+import { describePinError } from "@/lib/transactionErrors";
 
 type Props = {
   draft: CommunityMetadataDraft;
@@ -36,20 +37,6 @@ const STEP_LABELS: Record<PublishStep, string> = {
 
 function fileSignature(file: File | null): string {
   return file ? `${file.name}:${file.size}:${file.lastModified}` : "";
-}
-
-function describePinError(error: unknown): { message: string; retryable: boolean } {
-  if (error instanceof IpfsPinError) {
-    if (error.kind === "config") {
-      return {
-        message: `${error.message} Retrying will not help until the server is configured.`,
-        retryable: false,
-      };
-    }
-    return { message: error.message, retryable: error.retryable };
-  }
-  const message = error instanceof Error ? error.message : String(error);
-  return { message: message || "Pinning failed.", retryable: true };
 }
 
 /**

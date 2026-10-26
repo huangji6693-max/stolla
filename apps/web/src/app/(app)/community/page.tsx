@@ -14,9 +14,9 @@ import { getE2EBridge } from "@/lib/e2eMock";
 import { formatBytes, IPFS_UPLOAD_LIMITS } from "@/lib/ipfs/limits";
 import {
   createIpfsPinClient,
-  IpfsPinError,
   validateImageFile,
 } from "@/lib/ipfs/pin";
+import { describePinError } from "@/lib/transactionErrors";
 import {
   publishTokenMetadata,
   type PublishedTokenMetadata,
@@ -65,20 +65,6 @@ type PinState =
   | { kind: "error"; message: string; retryable: boolean };
 
 const IMAGE_ACCEPT = IPFS_UPLOAD_LIMITS.imageTypes.join(",");
-
-function describePinError(error: unknown): { message: string; retryable: boolean } {
-  if (error instanceof IpfsPinError) {
-    return {
-      message:
-        error.kind === "config"
-          ? `${error.message} Retrying will not help until the server is configured.`
-          : error.message,
-      retryable: error.retryable,
-    };
-  }
-  const message = error instanceof Error ? error.message : String(error);
-  return { message: message || "Pinning failed.", retryable: true };
-}
 
 export default function CommunityPage() {
   const { address, signTransaction } = useWallet();

@@ -152,4 +152,24 @@ describe("TransactionLifecycleStatus", () => {
     expect(screen.getByText("Mint failed")).toBeInTheDocument();
     expect(screen.getByText("Failed")).toBeInTheDocument();
   });
+
+  it("renders collapsible technical details when diagnostic differs from error copy", () => {
+    render(
+      <TransactionLifecycleStatus
+        stage="failure"
+        operationLabel="Mint"
+        error="Something went wrong while processing the transaction. Please try again."
+        diagnostic="HostError: Error(WasmVm, InvalidAction) raw-xdr-payload"
+      />,
+    );
+    expect(
+      screen.getByText(
+        "Something went wrong while processing the transaction. Please try again.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Technical details")).toBeInTheDocument();
+    expect(
+      screen.getByText("HostError: Error(WasmVm, InvalidAction) raw-xdr-payload"),
+    ).toBeInTheDocument();
+  });
 });

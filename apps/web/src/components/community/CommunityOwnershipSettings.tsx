@@ -7,6 +7,7 @@ import { communityOwnership, validateNewOwner, type OwnershipSimulation } from "
 import type { CommunityRegistryRecord } from "@/lib/community/types";
 import { AppButton } from "@/components/ui/AppButton";
 import { LiveStatus } from "@/components/ui/LiveStatus";
+import { mapTransactionError } from "@/lib/transactionErrors";
 
 type Props = { record: CommunityRegistryRecord; refresh: () => Promise<void> };
 
@@ -16,7 +17,7 @@ function describeError(error: unknown): string {
   if (/auth|unauthorized/i.test(message)) return "This wallet is not authorized for that ownership step. Check the current and pending owners.";
   if (/expired|past ledger/i.test(message)) return "The transfer expired. The current owner must start a new transfer.";
   if (/fetch|network|rpc/i.test(message)) return "The Stellar network could not be reached. Check the wallet network and retry.";
-  return message || "Ownership request failed. Review the address and retry.";
+  return mapTransactionError(error).message;
 }
 
 export function CommunityOwnershipSettings({ record, refresh }: Props) {

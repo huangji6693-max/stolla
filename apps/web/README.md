@@ -34,3 +34,15 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Transaction Error Catalog (`src/lib/transactionErrors.ts`)
+
+Soroban simulation, signing, submission, confirmation, and IPFS pinning errors are mapped to plain-language catalog entries in `src/lib/transactionErrors.ts` (`code -> { code, category, title, message, cta, retryable }`).
+
+To add a new error catalog mapping:
+
+1. Add the new identifier to `TRANSACTION_ERROR_CODES` in `src/lib/transactionErrors.ts`.
+2. Add the corresponding entry in `TRANSACTION_ERROR_CATALOG` with `code`, `category` (one of `TRANSACTION_ERROR_CATEGORIES`), `title`, plain-language `message`, `cta`, and `retryable`.
+3. Add detection rules in `classifyCode(error)` (keeping IPFS/pin configuration errors distinct from `wallet_rejected`).
+4. Add unit test coverage in `src/lib/transactionErrors.test.ts` verifying the mapped `code`, `category`, `title`, `message`, `cta`, `retryable`, and `diagnostic` fields.
+

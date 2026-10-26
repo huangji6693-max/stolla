@@ -173,6 +173,7 @@ type TransactionLifecycleDisplayProps = {
   voteType: number | null;
   reason: string;
   error: string | null;
+  diagnostic?: string | null;
   isTerminal: boolean;
 };
 
@@ -186,6 +187,7 @@ export function TransactionLifecycleDisplay({
   voteType,
   reason,
   error,
+  diagnostic = null,
   isTerminal,
 }: TransactionLifecycleDisplayProps) {
   if (stage === "idle") return null;
@@ -239,6 +241,16 @@ export function TransactionLifecycleDisplay({
         <p className="mt-3 text-sm text-rose-400">
           {error}
         </p>
+      )}
+      {diagnostic && diagnostic !== error && (
+        <details className="mt-2 min-w-0 text-xs text-slate-400">
+          <summary className="cursor-pointer select-none text-slate-300 hover:text-slate-100">
+            Technical details
+          </summary>
+          <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-all rounded border border-slate-800 bg-[#0b0f19] p-2 font-mono text-[11px] text-slate-300">
+            {diagnostic}
+          </pre>
+        </details>
       )}
 
       <LiveStatus tone={isFailure ? "error" : "routine"} className="sr-only">

@@ -28,6 +28,7 @@ import type {
 import { getE2EBridge } from "@/lib/e2eMock";
 import { config } from "@/lib/stellar";
 import { buildStellarExplorerTxUrl } from "@/lib/stellarExplorer";
+import { describeDeploymentError } from "@/lib/transactionErrors";
 import type { TransactionLifecycleStage } from "@/lib/transactionLifecycle";
 
 type Props = {
@@ -74,14 +75,7 @@ function authorizationMessage(status: FactoryAuthorizationStatus): string | null
 }
 
 function friendlyError(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error);
-  if (/reject|declin|denied/i.test(message)) {
-    return "Wallet approval was declined. Your draft and simulation are preserved so you can review and try again.";
-  }
-  if (/insufficient|resource/i.test(message)) {
-    return "Simulation found insufficient transaction resources. No wallet signature was requested.";
-  }
-  return message || "Community deployment failed.";
+  return describeDeploymentError(error).message;
 }
 
 export function CommunityDeploymentPanel({

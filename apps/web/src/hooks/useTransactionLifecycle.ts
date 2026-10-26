@@ -136,7 +136,8 @@ export function useTransactionLifecycle(options?: UseTransactionLifecycleOptions
         }
 
         if (
-          mapped.diagnostic?.includes("AlreadyVoted")  ||
+          mapped.code === "already_voted" ||
+          mapped.diagnostic?.includes("AlreadyVoted") ||
           mapped.diagnostic?.includes("already voted") ||
           mapped.diagnostic?.includes("5016")
         ) {
