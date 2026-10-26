@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_GOVERNANCE_DRAFT,
+  DEFAULT_IPFS_FALLBACK_GATEWAYS,
+  DEFAULT_IPFS_GATEWAY_URL,
   parseCommunityMetadata,
+  resolveCommunityResourceUrl,
+  resolveCommunityResourceUrls,
   validateAuthoringDraft,
   validateDeploymentPayload,
   validateGovernanceDraft,
@@ -150,5 +154,31 @@ describe("community metadata schema", () => {
       votingPeriod:
         "Enter a whole number from 2 through 4,294,967,295 ledgers.",
     });
+  });
+
+  it("resolves ordered IPFS gateway failover URLs and deduplicates gateways", () => {
+    expect(resolveCommunityResourceUrl("ipfs://bafylogo")).toBe(
+      `${DEFAULT_IPFS_GATEWAY_URL}bafylogo`,
+    );
+    expect(resolveCommunityResourceUrls("ipfs://bafylogo")).toEqual([
+      `${DEFAULT_IPFS_GATEWAY_URL}bafylogo`,
+      ...DEFAULT_IPFS_FALLBACK_GATEWAYS.map((gateway) => `${gateway}bafylogo`),
+    ]);
+
+    expect(
+      resolveCommunityResourceUrls("ipfs://bafycustom", {
+        primaryGateway: "https://primary.example/ipfs",
+        fallbackGateways:
+          "https://fallback-one.example/ipfs/, https://primary.example/ipfs/, http://insecure.example/ipfs/, https://fallback-two.example/ipfs",
+      }),
+    ).toEqual([
+      "https://primary.example/ipfs/bafycustom",
+      "https://fallback-one.example/ipfs/bafycustom",
+      "https://fallback-two.example/ipfs/bafycustom",
+    ]);
+
+    expect(resolveCommunityResourceUrls("https://example.test/logo.png")).toEqual([
+      "https://example.test/logo.png",
+    ]);
   });
 });

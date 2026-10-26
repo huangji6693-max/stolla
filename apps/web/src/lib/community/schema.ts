@@ -111,14 +111,88 @@ export function isHttpsUrl(value: string): boolean {
   }
 }
 
-export function resolveCommunityResourceUrl(uri: string): string {
-  if (uri.startsWith("https://")) return uri;
+export const DEFAULT_IPFS_GATEWAY_URL = "https://ipfs.io/ipfs/";
+
+export const DEFAULT_IPFS_FALLBACK_GATEWAYS = [
+  "https://cloudflare-ipfs.com/ipfs/",
+  "https://dweb.link/ipfs/",
+] as const;
+
+export type ResolveIpfsGatewayOptions = {
+  primaryGateway?: string;
+  fallbackGateways?: string | readonly string[];
+};
+
+function normalizeGatewayUrl(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed || !isHttpsUrl(trimmed)) return null;
+  return trimmed.replace(/\/?$/, "/");
+}
+
+function parseGatewayList(
+  value: string | readonly string[] | undefined,
+): string[] {
+  if (value === undefined) {
+    return [...DEFAULT_IPFS_FALLBACK_GATEWAYS];
+  }
+  const items =
+    typeof value === "string"
+      ? value
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean)
+      : value;
+  const normalized: string[] = [];
+  for (const item of items) {
+    const gateway = normalizeGatewayUrl(item);
+    if (gateway) normalized.push(gateway);
+  }
+  return normalized;
+}
+
+export function resolveIpfsGatewayUrls(
+  options?: ResolveIpfsGatewayOptions,
+): string[] {
+  const primaryRaw =
+    options?.primaryGateway ??
+    process.env.NEXT_PUBLIC_IPFS_GATEWAY_URL ??
+    DEFAULT_IPFS_GATEWAY_URL;
+  const primary =
+    normalizeGatewayUrl(primaryRaw) ?? DEFAULT_IPFS_GATEWAY_URL;
+  const fallbackRaw =
+    options?.fallbackGateways !== undefined
+      ? options.fallbackGateways
+      : process.env.NEXT_PUBLIC_IPFS_FALLBACK_GATEWAYS;
+  const fallbacks = parseGatewayList(fallbackRaw);
+
+  const unique: string[] = [];
+  for (const gateway of [primary, ...fallbacks]) {
+    if (!unique.includes(gateway)) {
+      unique.push(gateway);
+    }
+  }
+  return unique;
+}
+
+export function resolveCommunityResourceUrls(
+  uri: string,
+  options?: ResolveIpfsGatewayOptions,
+): string[] {
+  if (uri.startsWith("https://")) return [uri];
   if (uri.startsWith("ipfs://") && uri.length > "ipfs://".length) {
-    const gateway =
-      process.env.NEXT_PUBLIC_IPFS_GATEWAY_URL ?? "https://ipfs.io/ipfs/";
-    return `${gateway.replace(/\/?$/, "/")}${uri.slice("ipfs://".length)}`;
+    const ipfsPath = uri.slice("ipfs://".length);
+    return resolveIpfsGatewayUrls(options).map(
+      (gateway) => `${gateway}${ipfsPath}`,
+    );
   }
   throw new Error("The resource URI is not a supported public URI.");
+}
+
+export function resolveCommunityResourceUrl(
+  uri: string,
+  options?: ResolveIpfsGatewayOptions,
+): string {
+  return resolveCommunityResourceUrls(uri, options)[0];
 }
 
 export function validateAuthoringDraft(

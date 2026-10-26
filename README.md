@@ -48,6 +48,8 @@ NEXT_PUBLIC_NFT_CONTRACT_ID=<community-nft-contract-id>
 NEXT_PUBLIC_GOVERNOR_CONTRACT_ID=<governor-contract-id>
 # Optional gateway used to resolve ipfs:// community metadata and logos.
 NEXT_PUBLIC_IPFS_GATEWAY_URL=https://ipfs.io/ipfs/
+# Optional comma-separated fallback gateways tried in order if the primary gateway fails.
+NEXT_PUBLIC_IPFS_FALLBACK_GATEWAYS=https://cloudflare-ipfs.com/ipfs/,https://dweb.link/ipfs/
 # Server-only Pinata JWT. The app pins community, collection, and token
 # metadata through /api/ipfs/pin so creators never paste URIs. Never expose
 # it with a NEXT_PUBLIC_ prefix.
@@ -172,6 +174,7 @@ Add these environment variables in the Vercel project settings:
 | `NEXT_PUBLIC_GOVERNOR_CONTRACT_ID` | From deploy script output |
 | `NEXT_PUBLIC_GOVERNOR_START_LEDGER` | Governor deploy ledger from deploy script output |
 | `NEXT_PUBLIC_IPFS_GATEWAY_URL` | Public IPFS gateway ending in `/ipfs/` |
+| `NEXT_PUBLIC_IPFS_FALLBACK_GATEWAYS` | Optional comma-separated fallback HTTPS IPFS gateways ending in `/ipfs/` |
 | `PINATA_JWT` | Server-only Pinata JWT used by `/api/ipfs/pin` (required for create and mint) |
 | `NEXT_PUBLIC_ALLOW_MAINNET_WRITES` | `true` only after the testnet-to-mainnet runbook. Default off. Mainnet create, mint, and propose stay disabled until this is set. Testnet is unchanged. |
 
