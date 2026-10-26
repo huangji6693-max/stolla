@@ -29,13 +29,6 @@ jobs:
           node-version: "24"
           cache: npm
           cache-dependency-path: package-lock.json
-      - name: Reject nested workspace lockfile
-        run: |
-          if [ -f apps/web/package-lock.json ]; then
-            echo "Invalid npm workspace layout:"
-            echo "- apps/web/package-lock.json must not exist. Install dependencies from the repository root."
-            exit 1
-          fi
       - name: Install dependencies
         run: npm ci
       - name: Validate workspace layout
@@ -43,13 +36,13 @@ jobs:
       - name: Lint frontend
         run: npm run lint
       - name: Type-check frontend
-        run: npm run typecheck --workspace=web
+        run: npm run typecheck
       - name: Test frontend
-        run: npm run test --workspace=web
-      - name: Test production health checker
-        run: node --test scripts/check-production-health.test.mjs
+        run: npm run test:web
+      - name: Test workspace and operational scripts
+        run: node --test scripts/check-workspace-layout.test.mjs scripts/check-production-health.test.mjs scripts/deploy-testnet.test.mjs
       - name: Build frontend
-        run: npm run build --workspace=web
+        run: npm run build
         env:
           NEXT_PUBLIC_STELLAR_NETWORK: testnet
           NEXT_PUBLIC_STELLAR_RPC_URL: https://soroban-testnet.stellar.org
@@ -66,10 +59,19 @@ jobs:
           cache-dependency-path: package-lock.json
       - name: Install dependencies
         run: npm ci
+      - name: Validate workspace layout
+        run: npm run check:workspace
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
       - name: Install Playwright browsers
-        run: npx --workspace=web playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium
       - name: Run multi-community browsing flow
-        run: npm run test:e2e --workspace=web
+        run: npm run test:e2e:ci
         env:
           CI: true
           NEXT_PUBLIC_STELLAR_NETWORK: testnet
